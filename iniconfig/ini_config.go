@@ -6,10 +6,67 @@ import (
 	"reflect"
 	"errors"
 	"strconv"
+	"io/ioutil"
 )
 
-func Marshal(i interface{}) (data []byte, err error) {
+func MarshalFile(filename string, data interface{}) (err error) {
+	result, err := Marshal(data)
+	if err != nil {
+		return
+	}
+
+	return ioutil.WriteFile(filename, result, 0755)
+}
+
+
+func Marshal(i interface{}) (result []byte, err error) {
+	t := reflect.TypeOf(i)
+	if t.Kind() != reflect.Struct {
+		err = errors.New("please pass struct")
+		return
+	}
+	var conf []string
+	v := reflect.ValueOf(i)
+	for i := 0; i < t.NumField(); i++ {
+		sectionField := t.Field(i)
+		sectionVal := v.Field(i)
+		t1 := sectionField.Type
+		if t1.Kind() != reflect.Struct {
+			continue
+		}
+		tagVal := sectionField.Tag.Get("ini")
+		if len(tagVal) == 0 {
+			tagVal = sectionField.Name
+		}
+		section := fmt.Sprintf("\n[%s]\n", tagVal)
+		conf = append(conf, section)
+		for j := 0; j < t1.NumField(); j++ {
+			keyField := t1.Field(j)
+			fieldTagVal := keyField.Tag.Get("ini")
+			if len(fieldTagVal) == 0 {
+				fieldTagVal = keyField.Name
+			}
+
+			valField := sectionVal.Field(j)
+			item := fmt.Sprintf("%s=%v\n", fieldTagVal, valField.Interface())
+			conf = append(conf, item)
+		}
+	}
+
+	for _, val := range conf {
+		byteVal := []byte(val)
+		result = append(result, byteVal...)
+	}
 	return
+}
+
+func UnMarshalFile(filename string, result interface{}) (err error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return
+	}
+
+	return UnMarshal(data, result)
 }
 
 func UnMarshal(data []byte, i interface{}) (err error) {

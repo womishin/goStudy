@@ -2,7 +2,6 @@ package iniconfig
 
 import (
 	"testing"
-	"fmt"
 	"io/ioutil"
 )
 
@@ -26,17 +25,47 @@ type MysqlConfig struct {
 }
 
 func TestIniConfig(t *testing.T) {
-	fmt.Println("hello")
-	bytes, err := ioutil.ReadFile("./config.ini")
+
+	data, err := ioutil.ReadFile("./config.ini")
 	if err != nil {
-		t.Error(err)
+		t.Error("read file failed")
 	}
 
-	conf := new(Config)
-	err = UnMarshal(bytes, conf)
+	var conf Config
+	err = UnMarshal(data, &conf)
 	if err != nil {
-		t.Error(err)
+		t.Errorf("unmarshal failed, err:%v", err)
+		return
 	}
 
-	t.Logf("Unmarshal success, conf:%#v", conf)
+	t.Logf("unmarshal success, conf:%#v, port:%v", conf, conf.ServerConf.Port)
+	confData, err := Marshal(conf)
+	if err != nil {
+		t.Errorf("marshal failed, err:%v", err)
+	}
+
+	t.Logf("marshal succ, conf:%s", string(confData))
+
+	//MarshalFile(conf, "C:/tmp/test.conf")
+}
+
+func TestIniConfigFile(t *testing.T) {
+
+	filename := "C:/tmp/test.conf"
+	var conf Config
+	conf.ServerConf.Ip = "localhost"
+	conf.ServerConf.Port = 88888
+	err := MarshalFile(filename, conf)
+	if err != nil {
+		t.Errorf("marshal failed, err:%v", err)
+		return
+	}
+
+	var conf2 Config
+	err = UnMarshalFile(filename, &conf2)
+	if err != nil {
+		t.Errorf("unmarshal failed, err:%v", err)
+	}
+
+	t.Logf("unmarshal succ, conf:%#v", conf2)
 }
