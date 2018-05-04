@@ -1,12 +1,12 @@
 package iniconfig
 
 import (
-	"strings"
-	"fmt"
-	"reflect"
 	"errors"
-	"strconv"
+	"fmt"
 	"io/ioutil"
+	"reflect"
+	"strconv"
+	"strings"
 )
 
 func MarshalFile(filename string, data interface{}) (err error) {
@@ -18,30 +18,34 @@ func MarshalFile(filename string, data interface{}) (err error) {
 	return ioutil.WriteFile(filename, result, 0755)
 }
 
-
-func Marshal(i interface{}) (result []byte, err error) {
-	t := reflect.TypeOf(i)
-	if t.Kind() != reflect.Struct {
+func Marshal(data interface{}) (result []byte, err error) {
+	typeInfo := reflect.TypeOf(data)
+	if typeInfo.Kind() != reflect.Struct {
 		err = errors.New("please pass struct")
 		return
 	}
+
 	var conf []string
-	v := reflect.ValueOf(i)
-	for i := 0; i < t.NumField(); i++ {
-		sectionField := t.Field(i)
-		sectionVal := v.Field(i)
-		t1 := sectionField.Type
-		if t1.Kind() != reflect.Struct {
+	valueInfo := reflect.ValueOf(data)
+	for i := 0; i < typeInfo.NumField(); i++ {
+		sectionField := typeInfo.Field(i)
+		sectionVal := valueInfo.Field(i)
+
+		fieldType := sectionField.Type
+		if fieldType.Kind() != reflect.Struct {
 			continue
 		}
+
 		tagVal := sectionField.Tag.Get("ini")
 		if len(tagVal) == 0 {
 			tagVal = sectionField.Name
 		}
+
 		section := fmt.Sprintf("\n[%s]\n", tagVal)
 		conf = append(conf, section)
-		for j := 0; j < t1.NumField(); j++ {
-			keyField := t1.Field(j)
+
+		for j := 0; j < fieldType.NumField(); j++ {
+			keyField := fieldType.Field(j)
 			fieldTagVal := keyField.Tag.Get("ini")
 			if len(fieldTagVal) == 0 {
 				fieldTagVal = keyField.Name
@@ -69,39 +73,46 @@ func UnMarshalFile(filename string, result interface{}) (err error) {
 	return UnMarshal(data, result)
 }
 
-func UnMarshal(data []byte, i interface{}) (err error) {
-	var lastFieldName string
+func UnMarshal(data []byte, result interface{}) (err error) {
+
 	lineArr := strings.Split(string(data), "\n")
-	t := reflect.TypeOf(i)
-	//判断是否是指针
-	if t.Kind() != reflect.Ptr {
-		err := errors.New("please pass address")
-		return err
+
+	typeInfo := reflect.TypeOf(result)
+	if typeInfo.Kind() != reflect.Ptr {
+		err = errors.New("please pass address")
+		return
 	}
-	typeStruct := t.Elem()
-	//判断是否是结构体
+
+	typeStruct := typeInfo.Elem()
 	if typeStruct.Kind() != reflect.Struct {
 		err = errors.New("please pass struct")
-		return err
+		return
 	}
+
+	var lastFieldName string
 	for index, line := range lineArr {
 		line = strings.TrimSpace(line)
-		//判断是否为空或者是否为备注
-		if len(line) == 0 || line[0] == ';' || line[0] == '#' {
+		if len(line) == 0 {
 			continue
 		}
+
+		//如果是注释，直接忽略
+		if line[0] == ';' || line[0] == '#' {
+			continue
+		}
+
 		if line[0] == '[' {
-			lastFieldName, err = parsesection(line, typeStruct, index)
+			lastFieldName, err = parseSection(line, typeStruct)
 			if err != nil {
-				err = fmt.Errorf("%v lineNo:%d", err, index+1)
+				err = fmt.Errorf("%v lineno:%d", err, index+1)
 				return
 			}
 			continue
 		}
 
-		err = parseItem(lastFieldName, line, i)
+		err = parseItem(lastFieldName, line, result)
 		if err != nil {
-			err = fmt.Errorf("%v lineNo:%d", err, index+1)
+			err = fmt.Errorf("%v lineno:%d", err, index+1)
 			return
 		}
 	}
@@ -184,30 +195,34 @@ func parseItem(lastFieldName string, line string, result interface{}) (err error
 	return
 }
 
-func parsesection(line string, typeStruct reflect.Type, index int) (fieldName string, err error) {
+func parseSection(line string, typeInfo reflect.Type) (fieldName string, err error) {
+
 	if line[0] == '[' && len(line) <= 2 {
-		err = fmt.Errorf("syntax error, invalid section:%s, lineNo:%d", line, index+1)
+		err = fmt.Errorf("syntax error, invalid section:%s", line)
 		return
 	}
+
 	if line[0] == '[' && line[len(line)-1] != ']' {
-		err = fmt.Errorf("syntax error, invalid section:%s, lineNo:%d", line, index+1)
+		err = fmt.Errorf("syntax error, invalid section:%s", line)
 		return
 	}
+
 	if line[0] == '[' && line[len(line)-1] == ']' {
-		space := strings.TrimSpace(line[1 : len(line)-1])
-		if len(space) == 0 {
-			err = fmt.Errorf("syntax error, invalid section:%s, lineNo:%d", line, index+1)
+		sectionName := strings.TrimSpace(line[1 : len(line)-1])
+		if len(sectionName) == 0 {
+			err = fmt.Errorf("syntax error, invalid section:%s", line)
 			return
 		}
 
-		for i := 0; i < typeStruct.NumField(); i++ {
-			field := typeStruct.Field(i)
+		for i := 0; i < typeInfo.NumField(); i++ {
+			field := typeInfo.Field(i)
 			tagValue := field.Tag.Get("ini")
-			if tagValue == space {
+			if tagValue == sectionName {
 				fieldName = field.Name
 				break
 			}
 		}
 	}
+
 	return
 }

@@ -1,8 +1,8 @@
 package iniconfig
 
 import (
-	"testing"
 	"io/ioutil"
+	"testing"
 )
 
 type Config struct {
@@ -12,16 +12,16 @@ type Config struct {
 
 type ServerConfig struct {
 	Ip   string `ini:"ip"`
-	Port int    `ini:"port"`
+	Port uint   `ini:"port"`
 }
 
 type MysqlConfig struct {
 	Username string  `ini:"username"`
-	Password string  `ini:"password"`
+	Passwd   string  `ini:"passwd"`
 	Database string  `ini:"database"`
 	Host     string  `ini:"host"`
 	Port     int     `ini:"port"`
-	Timeout  float64 `ini:"timeout"`
+	Timeout  float32 `ini:"timeout"`
 }
 
 func TestIniConfig(t *testing.T) {
@@ -46,12 +46,12 @@ func TestIniConfig(t *testing.T) {
 
 	t.Logf("marshal succ, conf:%s", string(confData))
 
-	//MarshalFile(conf, "C:/tmp/test.conf")
+	MarshalFile("d:/test.conf", conf)
 }
 
 func TestIniConfigFile(t *testing.T) {
 
-	filename := "C:/tmp/test.conf"
+	filename := "d:/test.conf"
 	var conf Config
 	conf.ServerConf.Ip = "localhost"
 	conf.ServerConf.Port = 88888
