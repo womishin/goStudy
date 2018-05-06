@@ -1,16 +1,25 @@
 package main
 
 import (
-	"runtime"
-	"fmt"
+	"net/http"
+	"log"
 )
 
 func main() {
-	n := runtime.GOMAXPROCS(100)
-	fmt.Println("核心数:", n)
-
-	for{
-		go fmt.Print(0)
-		fmt.Print(1)
+	resp, err := http.Get("http://www.baidu.com")
+	if err != nil {
+		log.Fatal(err)
 	}
+	defer resp.Body.Close()
+	buf := make([]byte, 1024*4)
+	var tmp string
+	for{
+		n, err := resp.Body.Read(buf)
+		if err != nil || n == 0{
+			log.Println(err)
+			break
+		}
+		tmp += string(buf[:n])
+	}
+	log.Println(tmp)
 }
